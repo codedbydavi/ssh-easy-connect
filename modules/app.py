@@ -1,6 +1,7 @@
 import curses
+from time import time
 from modules.storage import load_data, save_data
-from modules.network import run_pings_once, connect_to_server
+from modules.network import run_pings_once, connect_to_server, ping_status
 from modules.ui import draw_menu, add_edit_conn, get_input
 
 def main_tui(stdscr):
@@ -20,11 +21,13 @@ def main_tui(stdscr):
     data = load_data()
     run_pings_once(data.get("servers", []))
 
+    start_time = time.time()
+
     while True:
         all_servers = data.get("servers", [])
         groups = ["All"] + list(sorted(set(s.get("group", "General") for s in all_servers)))
         
-        # Filtragem
+        # Filter servers based on active group and search query
         servers = [s for s in all_servers if (active_group == "All" or s.get("group", "General") == active_group)]
         if search_query:
             servers = [s for s in servers if search_query.lower() in s["name"].lower() or search_query in s["host"]]
@@ -32,11 +35,18 @@ def main_tui(stdscr):
         current_row = max(0, min(current_row, len(servers) - 1))
         draw_menu(stdscr, servers, current_row, search_query, active_group)
         
-        stdscr.timeout(-1)
+        # Intelligent refresh: if pings are still pending, refresh more frequently to update statuses
+        pending_pings = any(ping_status.get(s['host']) == "⚪" for s in all_servers)
+        if time.time() - start_time < 0.5 and pending_pings:
+            stdscr.timeout(500)  # Short timeout to refresh ping status quickly
+        else:
+            stdscr.timeout(-1)  # Wait indefinitely for user input
+
         key = stdscr.getch()
         
         if key == -1 or key == 0: continue
 
+        # Handle user input for navigation and actions
         if key == curses.KEY_UP and current_row > 0: current_row -= 1
         elif key == curses.KEY_DOWN and current_row < len(servers) - 1: current_row += 1
         elif key in [ord('\n'), ord('m'), ord('c')] and servers:
