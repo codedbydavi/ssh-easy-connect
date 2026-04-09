@@ -1,0 +1,14 @@
+#!/bin/bash
+# Shortcut for SSH Easy Connect
+
+# Detect the real directory of the script, even if it's called via a symbolic link
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Activate the virtual environment if it exists
+if [ -d "$DIR/.venv" ]; then
+    source "$DIR/.venv/bin/activate"
+fi
+
+# Execute the main Python application
+# "$@" passes all command-line arguments to the Python script
+python3 "$DIR/main.py" "$@"
